@@ -36,13 +36,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.tecsup.bookshelf.data.Book
 
 val Cafe = Color(0xFF5D4037)
@@ -51,6 +54,13 @@ private val sugerencias = listOf("android", "kotlin", "harry potter", "dinosaurs
 @Composable
 fun HomeScreen(viewModel: BookshelfViewModel, onLibro: (String) -> Unit) {
     val focusManager = LocalFocusManager.current
+    val teclado = LocalSoftwareKeyboardController.current
+    // Quita el foco, oculta el teclado y lanza la busqueda
+    val buscar: (String) -> Unit = { texto ->
+        focusManager.clearFocus()
+        teclado?.hide()
+        viewModel.buscar(texto)
+    }
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = viewModel.query,
@@ -58,12 +68,12 @@ fun HomeScreen(viewModel: BookshelfViewModel, onLibro: (String) -> Unit) {
             label = { Text("Buscar libros") },
             singleLine = true,
             trailingIcon = {
-                IconButton(onClick = { focusManager.clearFocus(); viewModel.buscar() }) {
+                IconButton(onClick = { buscar(viewModel.query) }) {
                     Icon(Icons.Filled.Search, contentDescription = "Buscar")
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus(); viewModel.buscar() }),
+            keyboardActions = KeyboardActions(onSearch = { buscar(viewModel.query) }),
             modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp)
         )
         LazyRow(
@@ -71,7 +81,7 @@ fun HomeScreen(viewModel: BookshelfViewModel, onLibro: (String) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(sugerencias) { tema ->
-                SuggestionChip(onClick = { focusManager.clearFocus(); viewModel.buscar(tema) }, label = { Text(tema) })
+                SuggestionChip(onClick = { buscar(tema) }, label = { Text(tema) })
             }
         }
         when (val estado = viewModel.uiState) {
@@ -122,7 +132,10 @@ fun BookCard(book: Book, onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         AsyncImage(
-            model = book.coverUrl(),
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(book.coverUrl())
+                .crossfade(true)
+                .build(),
             contentDescription = book.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)
